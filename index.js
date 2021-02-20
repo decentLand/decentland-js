@@ -85,7 +85,7 @@ const getPsPosts = async () => {
 	const posts = [];
 
 	try {
-		const posts_list = await getPostsTx();
+		const posts_list = await getPsPostsTx();
 
 		for (post_tx of posts_list) {
 			const tx_status = await arweave.transactions.getStatus(post_tx)
