@@ -1,0 +1,15 @@
+{
+  "name": "decentland",
+  "version": "1.0.0",
+  "description": "an API to interact with decent.land protocol",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "charmful0x",
+  "license": "MIT",
+  "dependencies": {
+    "arweave": "^1.10.11",
+    "babel": "^6.23.0"
+  }
+}
