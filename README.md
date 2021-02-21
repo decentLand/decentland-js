@@ -11,6 +11,8 @@ npm install decentland
 # Usage
 
 **get user's profile**
+
+this method returns the last registration transaction. To get full profile's historty, use `profileHistory()` method
 ```javascript
 //CommonJS
 const decentland = require('decentland'); 
