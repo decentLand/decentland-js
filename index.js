@@ -229,7 +229,152 @@ const profile = async(address) => {
 		return err
 	}
             
-}
+};
+
+const getTribuses = async() => {
+
+	const tribusesObj = await arweave.arql({
+        op: 'and',
+        expr1: {
+            op: 'equals',
+            expr1: 'action',
+            expr2: 'createTribus'
+        },
+
+        expr2: {
+            op: 'and',
+            expr1: {
+                op: 'equals',
+                expr1: 'App-Name',
+                expr2: 'decent.land'
+            },
+
+            expr2: {
+                op: 'and',
+                expr1: {
+                op: 'equals',
+                expr1: 'Content-Type',
+                expr2: 'application/json'
+            },
+
+            expr2: {
+                op: 'equals',
+                expr1: 'version',
+                expr2: 'testnet'
+            	
+            	}
+            }
+        }
+	});
+
+	return tribusesObj
+
+};
+
+const profileHistory = async(address) => {
+
+	if (typeof address !== "string") {
+		throw new TypeError("Please provide wallet's address as string");
+	}
+
+	try {
+		let profile = await arweave.arql(
+		{
+                op: 'and',
+                expr1:
+                    {
+                        op: 'equals',
+                        expr1: 'user-id',
+                        expr2: address,
+                    },
+                
+                expr2:
+                    {
+                      op: 'and',
+                        expr1: 
+                                {
+                                    op: 'equals',
+                                    expr1: 'App-Name',
+                                    expr2: 'decent.land'
+                                },
+
+   
+                        expr2:
+                            {
+                            op: 'and',
+                              expr1:
+                                
+                                    {
+                                        op:'equals',
+                                        expr1: 'version',
+                                        expr2: '0.0.1',
+                                    },
+                                
+                                expr2:
+                                    
+                                    {
+                                        op: 'and',
+                                            expr1:
+
+                                            {
+                                                op:'equals',
+                                                expr1: 'action',
+                                                expr2: 'signup'
+                                            },
+
+                                            expr2:
+                                                
+                                                {
+                                                    op: 'and',
+                                                        expr1:
+
+                                                        {
+                                                            op: 'equals',
+                                                            expr1: 'Content-Type',
+                                                            expr2: 'application/json',
+                                                        },
+
+                                                        expr2:
+                                                        
+                                                        {
+                                                            op: 'equals',
+                                                            expr1: 'from',
+                                                            expr2: address,
+                                                        },
+                                                },
+                                    },
+
+                            },
+                    },
+
+            });
+
+		const profile_his = [];
+
+	if (profile.length > 0) {
+
+		for (tx of profile) {
+
+			const registration_data =  await arweave.transactions.getData(tx,
+			{
+			decode: true, string: true
+			});
+
+			profile_his.push( JSON.parse(registration_data) );
+		}
+
+		
+		return profile_his;
+
+		} else {
+			return []
+			}
+
+	} catch(err) {
+		return err
+		};
+
+};
 
 
-module.exports = {getPsPosts, getPsPostsTx, profile}
+module.exports = {getPsPosts, getPsPostsTx, profile, getTribuses, profileHistory}
