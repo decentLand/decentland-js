@@ -1,14 +1,24 @@
 {
   "name": "decentland",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "an API to interact with decent.land protocol",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo 'soon' "
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/decentLand/decentland-js.git"
+  },
+  "keywords": ["arweave", "web3", "social media", "api", "blockchain", "social network"],
   "author": "charmful0x",
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/decentLand/decentland-js/issues"
+  },
+  "homepage": "https://github.com/decentLand/decentland-js#readme",
   "dependencies": {
-    "arweave": "^1.10.11"
+    "arweave": "^1.10.11",
+    "chai": "^4.3.0"
   }
 }
