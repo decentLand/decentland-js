@@ -1,380 +1,346 @@
 const Arweave = require('arweave');
+const fetch = require("node-fetch");
 
 const arweave = Arweave.init({
-	host: 'arweave.net',
-	port: 443,
-	protocol: 'https',
-	timeout: 20000
-	
+    host: 'arweave.net',
+    port: 443,
+    protocol: 'https',
+    timeout: 20000
+    
 });
 
 
-const getPsPostsTx = async () => {
+const tribusPostsOf = async(tribus_id) => {
+
+    let name = null;
+    let app = null;
+
+    if (tribus_id === "null") {
+
+        name = "public-square";
+        app = "PublicSquare";
+
+        const queryObject = {
+      query: 
+        `query {
+  transactions(
+    tags: [
+        { name: "Content-Type", values: "text/plain" },
+        { name: "App-Name", values: "${app}"},
+        { name: "tribus-id", values: "${tribus_id}"},
+        { name: "tribus-name", values: "${name}"},
+        { name: "Type", values: "post"}
+      
+        ]
+
+    first: 1000000
+
+  ) {
+    edges {
+      node {
+        id
+      }
+    }
+  }
+}
+`,
+    };
+
+    const response = await fetch("https://arweave.net/graphql", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(queryObject),
+    });
+
+    const json = await response.json();
+    const data_arr = [];
+
+    const res_arr = json["data"]["transactions"]["edges"];
+
+    for (element of res_arr) {
+        const tx_obj = Object.values(element);
+        const tx_id = (Object.values(tx_obj[0]));
+        data_arr.push(tx_id[0])
+    }
+
+    return data_arr
 
 
-	try {
+    } else {
 
-		let posts = await arweave.arql({
-			op: 'and',
-			expr1: {
-				op: 'equals',
-				expr1: 'App-Name',
-				expr2: 'PublicSquare',
-			},
+        const tribusesTxs = await getTribuses()
 
-			expr2: {
-				op: 'and',
-				expr1: {
-					op: 'equals',
-					expr1: 'Content-Type',
-					expr2: 'text/plain'
-				},
+        if ( await isValidcXYZContract(tribus_id) ) {
 
-				expr2: {
-					op: 'and',
-					expr1: {
-						op: 'equals',
-						expr1: 'Version',
-						expr2: '1'
-					},
-					expr2: {
-						op: 'and',
-						expr1: {
-							op: 'equals',
-							expr1: 'protocol',
-							expr2: 'decent.land'
-						},
-						expr2: {
-							op: 'and',
-							expr1: {
-								op: 'equals',
-								expr1: 'tribus-id',
-								expr2: 'null'
-							},
-							expr2: {
-								op: 'or',
-								expr1: {
-									op: 'equals',
-									expr1: 'Type',
-									expr2: 'post'
-								},
-								expr2: {
-									op: 'equals',
-									expr1: 'Type',
-									expr2: 'post'
-								}
-							}
-						}
-					}
-				}
-			}
-		})
 
-		
-		return posts
-	} catch(err) {
+            const valid_tribus_tx = await getValidTxOf(tribus_id);
 
-		return err
-	}
+            // return an empty array if the tribus has been created by a
+            // different owner of the cXYZ PSC OR even not created yet
+            if (! valid_tribus_tx) {
+                return []
+            };
 
+            const valid_tribus_tx_obj = await arweave.transactions.get(valid_tribus_tx);
+
+
+            const tags_list = await valid_tribus_tx_obj.get("tags");
+
+            for (tag_pair of tags_list) {
+
+                const key = tag_pair.get("name", {decode: true, string: true});
+                const value = tag_pair.get("value", {decode: true, string: true});
+
+                if (key == "tribus-name") {
+                    name = value
+                    app = "decent.land"
+                };
+            };
+
+            const queryObject = {
+      query: 
+        `query {
+  transactions(
+    tags: [
+        { name: "Content-Type", values: "text/plain" },
+        { name: "App-Name", values: "${app}"},
+        { name: "tribus-id", values: "${tribus_id}"},
+        { name: "tribus-name", values: "${name}"},
+        { name: "action", values: "post"}
+      
+        ]
+
+    first: 1000000
+
+  ) {
+    edges {
+      node {
+        id
+      }
+    }
+  }
+}
+`,
+    };
+
+    const response = await fetch("https://arweave.net/graphql", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(queryObject),
+    });
+
+    const json = await response.json();
+    const data_arr = [];
+
+    const res_arr = json["data"]["transactions"]["edges"];
+
+    for (element of res_arr) {
+        const tx_obj = Object.values(element);
+        const tx_id = (Object.values(tx_obj[0]));
+        data_arr.push(tx_id[0])
+    }
+
+    return data_arr
+
+        }
+
+    }
 
 }
 
-const getPsPosts = async () => {
-
-	const posts = [];
-
-	try {
-		const posts_list = await getPsPostsTx();
-
-		for (post_tx of posts_list) {
-			const tx_status = await arweave.transactions.getStatus(post_tx)
-
-			if (tx_status["status"] == 200) {
-		
-
-				const post_data = await arweave.transactions.getData(post_tx,
-				{decode: true, string: true});
-	
-				const post_body = {};
-				post_body["data"] = post_data;
-				post_body["txID"] = post_tx;
-
-				// decode tags
-				const tx_data = await arweave.transactions.get(post_tx)
-        		const tags = await tx_data.get('tags')
-
-        		for (tag of tags) {
-            		const key = tag.get("name", {decode: true, string: true})
-            		const value = tag.get("value", {decode: true, string: true})
-   
-            		if (key == 'username' || key == 'user-id' || key == 'pfp' || key == 'unix-epoch' ) {
-
-                	post_body[key.replace('-', '_')] = String(value)
-                	
-
-            		}
 
 
-        		}
-
-				
-				posts.push(post_body)
-			}
-
-
-			
-		} 
-		return posts
-
-
-	} catch(err) {
-			return err
-		}
-	
-
-}
-
-
-const profile = async(address) => {
-	if (typeof address !== "string") {
-		throw new TypeError("Please provide wallet's address as string");
-	}
-
-	try {
-		let profile = await arweave.arql(
-		{
-                op: 'and',
-                expr1:
-                    {
-                        op: 'equals',
-                        expr1: 'user-id',
-                        expr2: address,
-                    },
-                
-                expr2:
-                    {
-                      op: 'and',
-                        expr1: 
-                                {
-                                    op: 'equals',
-                                    expr1: 'App-Name',
-                                    expr2: 'decent.land'
-                                },
-
-   
-                        expr2:
-                            {
-                            op: 'and',
-                              expr1:
-                                
-                                    {
-                                        op:'equals',
-                                        expr1: 'version',
-                                        expr2: '0.0.1',
-                                    },
-                                
-                                expr2:
-                                    
-                                    {
-                                        op: 'and',
-                                            expr1:
-
-                                            {
-                                                op:'equals',
-                                                expr1: 'action',
-                                                expr2: 'signup'
-                                            },
-
-                                            expr2:
-                                                
-                                                {
-                                                    op: 'and',
-                                                        expr1:
-
-                                                        {
-                                                            op: 'equals',
-                                                            expr1: 'Content-Type',
-                                                            expr2: 'application/json',
-                                                        },
-
-                                                        expr2:
-                                                        
-                                                        {
-                                                            op: 'equals',
-                                                            expr1: 'from',
-                                                            expr2: address,
-                                                        },
-                                                },
-                                    },
-
-                            },
-                    },
-
-            });
-
-	if (profile.length > 0) {
-		const last_tx_update = profile[0]
-		const update_data = await arweave.transactions.getData(last_tx_update, {
-			decode: true, string: true
-		});
-
-		
-		return JSON.parse(update_data)
-	} else {
-		return {}
-	}
-
-	} catch(err) {
-		return err
-	}
-            
-};
 
 const getTribuses = async() => {
 
-	const tribusesObj = await arweave.arql({
-        op: 'and',
-        expr1: {
-            op: 'equals',
-            expr1: 'action',
-            expr2: 'createTribus'
-        },
+    const queryObject = {
+      query: 
+        `query {
+  transactions(
+    tags: [
+        { name: "Content-Type", values: "application/json" },
+        { name: "App-Name", values: "decent.land"},
+        { name: "action", values: "createTribus"},
+        { name: "version", values: "mainnet"}
+      
+        ]
 
-        expr2: {
-            op: 'and',
-            expr1: {
-                op: 'equals',
-                expr1: 'App-Name',
-                expr2: 'decent.land'
-            },
+    first: 1000000
 
-            expr2: {
-                op: 'and',
-                expr1: {
-                op: 'equals',
-                expr1: 'Content-Type',
-                expr2: 'application/json'
-            },
+  ) {
+    edges {
+      node {
+        id
+      }
+    }
+  }
+}
+`,
+    };
 
-            expr2: {
-                op: 'equals',
-                expr1: 'version',
-                expr2: 'testnet'
-            	
-            	}
-            }
-        }
-	});
+    const response = await fetch("https://arweave.net/graphql", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(queryObject),
+    });
 
-	return tribusesObj
+    const json = await response.json();
+   
+    const data_arr = [];
 
+    const res_arr = json["data"]["transactions"]["edges"];
+
+    for (element of res_arr) {
+        const tx_obj = Object.values(element);
+        const tx_id = (Object.values(tx_obj[0]));
+        data_arr.push(tx_id[0])
+    }
+
+    return data_arr
 };
+
+
 
 const profileHistory = async(address) => {
 
-	if (typeof address !== "string") {
-		throw new TypeError("Please provide wallet's address as string");
-	}
+    if (typeof address !== "string") {
+        throw new TypeError("Please provide wallet's address as string");
+    };
 
-	try {
-		let profile = await arweave.arql(
-		{
-                op: 'and',
-                expr1:
-                    {
-                        op: 'equals',
-                        expr1: 'user-id',
-                        expr2: address,
-                    },
-                
-                expr2:
-                    {
-                      op: 'and',
-                        expr1: 
-                                {
-                                    op: 'equals',
-                                    expr1: 'App-Name',
-                                    expr2: 'decent.land'
-                                },
+    const queryObject = {
+      query: 
+        `query {
+  transactions(
+    tags: [
+        { name: "Content-Type", values: "application/json" },
+        { name: "App-Name", values: "decent.land"},
+        { name: "action", values: "signup"},
+        { name: "version", values: "0.0.1"}
 
-   
-                        expr2:
-                            {
-                            op: 'and',
-                              expr1:
-                                
-                                    {
-                                        op:'equals',
-                                        expr1: 'version',
-                                        expr2: '0.0.1',
-                                    },
-                                
-                                expr2:
-                                    
-                                    {
-                                        op: 'and',
-                                            expr1:
 
-                                            {
-                                                op:'equals',
-                                                expr1: 'action',
-                                                expr2: 'signup'
-                                            },
+      
+    ]
 
-                                            expr2:
-                                                
-                                                {
-                                                    op: 'and',
-                                                        expr1:
+    first: 1000000
+    owners:["${address}"]
 
-                                                        {
-                                                            op: 'equals',
-                                                            expr1: 'Content-Type',
-                                                            expr2: 'application/json',
-                                                        },
+  ) {
+    edges {
+      node {
+        id
+      }
+    }
+  }
+}
+`,
+    };
 
-                                                        expr2:
-                                                        
-                                                        {
-                                                            op: 'equals',
-                                                            expr1: 'from',
-                                                            expr2: address,
-                                                        },
-                                                },
-                                    },
+    const response = await fetch("https://arweave.net/graphql", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(queryObject),
+    });
 
-                            },
-                    },
+    const json = await response.json();
 
+    const data_arr = [];
+
+    const res_arr = json["data"]["transactions"]["edges"];
+
+    for (element of res_arr) {
+        const tx_obj = Object.values(element);
+        const tx_id = (Object.values(tx_obj[0]));
+        data_arr.push(tx_id[0])
+    };
+  
+    const profile_his = [];
+
+    if (data_arr.length > 0) {
+
+        for (tx of data_arr){
+
+            const registration_data =  await arweave.transactions.getData(tx,
+            {
+            decode: true, string: true
             });
 
-		const profile_his = [];
+            profile_his.push( JSON.parse(registration_data) );
+        }
 
-	if (profile.length > 0) {
+        
+        return profile_his;
 
-		for (tx of profile) {
+        } else {
+            return []
+            }
 
-			const registration_data =  await arweave.transactions.getData(tx,
-			{
-			decode: true, string: true
-			});
+    };
 
-			profile_his.push( JSON.parse(registration_data) );
-		}
 
-		
-		return profile_his;
+const getTribusesObjects = async() => {
+    const tribuses_objects_arrays = [];
+    const tribusesTxs = await getTribuses();
 
-		} else {
-			return []
-			}
+    for (tribus_tx of tribusesTxs) {
+        const tribus_holder = {};
+        const tx_data = await arweave.transactions.getData(tribus_tx, {decode: true, string: true});
+        const value = JSON.parse(tx_data)
 
-	} catch(err) {
-		return err
-		};
+        tribus_holder[String(tribus_tx)] = value
+  
+        tribuses_objects_arrays.push(tribus_holder)
 
+    };
+
+    return tribuses_objects_arrays
 };
 
 
-module.exports = {getPsPosts, getPsPostsTx, profile, getTribuses, profileHistory}
+
+
+// ** HELPER FUNCTIONS ** //
+
+const isValidcXYZContract = async(contract_id) => {
+    const contract_tx = await arweave.transactions.get(contract_id);
+    const tags_list = await contract_tx.get("tags");
+
+    for (tag_pair of tags_list) {
+        const key = tag_pair.get("name", {decode: true, string: true});
+        const value = tag_pair.get("value", {decode: true, string: true});
+
+        if (key == "Contract-Src" && value == "ngMml4jmlxu0umpiQCsHgPX2pb_Yz6YDB8f7G6j-tpI") {
+            return true
+        }
+
+    }
+
+    return false
+
+};
+
+const getValidTxOf = async(tribus_id) => {
+    const psc_creation_tx = await arweave.transactions.get(tribus_id);
+    const psc_owner = psc_creation_tx["owner"];
+
+    const tribusesObject = await getTribusesObjects();
+
+    for (t_obj of tribusesObject) {
+
+        const t_obj_creation_tx = Object.keys(t_obj)[0];
+        
+        const t_obj_creation_tx_ar_object = 
+            await arweave.transactions.get(t_obj_creation_tx);
+
+        const t_obj_creation_tx_owner = t_obj_creation_tx_ar_object["owner"]
+
+        if (t_obj_creation_tx_owner == psc_owner) {
+            return t_obj_creation_tx
+        };
+    }
+
+    return null
+    
+};
+
+
+module.exports = {tribusPostsOf, getTribuses, profileHistory, getTribusesObjects};
